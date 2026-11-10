@@ -7,6 +7,7 @@ const words = [
 ];
 const ROUND_SECONDS = 15;
 const SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbywzD9QNTqhxXsCGcOzmNGbo96APKs_UwjeDK0EtnBH6doTclADMiecDf9gqbXfe6gf/exec';
+const GAME_BUILD = 'sheets-json-20261110';
 const screens = [...document.querySelectorAll('.screen')];
 const card = document.querySelector('#puzzle-card');
 const input = document.querySelector('#answer-input');
@@ -20,6 +21,8 @@ const timerWrap = document.querySelector('#timer-wrap');
 const timerValue = document.querySelector('#timer-value');
 const timerProgress = document.querySelector('#timer-progress');
 const CIRCUMFERENCE = 2 * Math.PI * 25;
+
+console.info(`[Game] ${GAME_BUILD} loaded. Google Sheets configured: ${Boolean(SHEETS_WEB_APP_URL)}.`);
 
 let currentIndex = 0;
 let score = 0;
@@ -216,7 +219,14 @@ function finishGame() {
 }
 
 function saveResult() {
-  if (!SHEETS_WEB_APP_URL || resultSubmissionSent) return;
+  if (!SHEETS_WEB_APP_URL) {
+    console.error('[Google Sheets] Result was not sent: Web App URL is not configured.');
+    return;
+  }
+  if (resultSubmissionSent) {
+    console.warn('[Google Sheets] Duplicate result submission blocked.');
+    return;
+  }
   resultSubmissionSent = true;
   const result = {
     playerName,
@@ -225,12 +235,17 @@ function saveResult() {
     unanswered: unansweredWords,
     totalTime: totalTimeSeconds
   };
+  console.info('[Google Sheets] Sending one final result to the Web App.');
   Promise.resolve().then(() => fetch(SHEETS_WEB_APP_URL, {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(result)
-  })).catch(() => {});
+  })).then(() => {
+    console.info('[Google Sheets] Browser sent the no-cors request; verify the sheet because its response is hidden.');
+  }).catch((error) => {
+    console.error('[Google Sheets] Network request failed before completion.', error);
+  });
 }
 
 function formatDuration(seconds) {
